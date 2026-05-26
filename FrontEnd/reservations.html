@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Reservations</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="reservations.html" class="active">Reservations</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <h2>My Reservations</h2>
+  <p style="color:#666;margin-bottom:16px;font-size:14px">You can have up to 3 active reservations. You will be notified when your reserved book becomes available.</p>
+
+  <div id="reservations-list"></div>
+</main>
+
+<script src="auth.js"></script>
+<script src="dialog.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+
+  async function loadReservations() {
+    var res = await fetch(API + '/reservations/user/' + getCurrentUserId()).then(r => r.json()).catch(() => []);
+    var el  = document.getElementById('reservations-list');
+
+    if (!res.length) {
+      el.innerHTML = '<div class="card"><p class="empty">No active reservations. <a href="catalog.html">Browse catalog →</a></p></div>';
+      return;
+    }
+
+    el.innerHTML = res.map(function(r) {
+      var expires = new Date(r.expiresAt);
+      return '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<div>' +
+          '<strong>' + r.book.title + '</strong><br>' +
+          '<span style="color:#666;font-size:13px">' + (r.book.author || '') + '</span><br>' +
+          '<span style="font-size:12px;color:#888">Queue position: <strong>#' + r.queuePosition + '</strong> · Expires: ' + expires.toLocaleDateString() + '</span>' +
+        '</div>' +
+        '<button onclick="cancelReservation(' + r.id + ')" class="btn btn-red" style="font-size:13px">Cancel</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function cancelReservation(id) {
+    if (!await customConfirm('Cancel this reservation?')) return;
+    var res = await fetch(API + '/reservations/' + id, { method: 'DELETE' });
+    if (res.ok) { showToast('Reservation cancelled.', 'success'); loadReservations(); }
+    else showToast('Could not cancel.', 'error');
+  }
+
+  loadReservations();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>

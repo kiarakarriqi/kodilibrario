@@ -1,0 +1,22 @@
+# SQLite temporary files
+*.db-shm
+*.db-wal
+
+# NOTE: library.db is intentionally included for demo purposes
+
+# .NET
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# macOS
+.DS_Store
+
+# Database backups
+*.db.backup
+*.db.backup2
+*.db-backup

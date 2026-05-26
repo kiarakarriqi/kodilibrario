@@ -1,0 +1,132 @@
+/* ─────────────────────────────────────────────────────────────
+   Custom dialog system — replaces native confirm()/prompt()
+   Usage:
+     var ok = await customConfirm('Delete this item?');
+     var name = await customPrompt('Enter your name:');
+   Returns:
+     customConfirm → true / false
+     customPrompt  → string (empty if cancelled) / null if cancelled
+   ───────────────────────────────────────────────────────────── */
+(function() {
+  // Inject CSS once
+  if (!document.getElementById('custom-dialog-styles')) {
+    var style = document.createElement('style');
+    style.id = 'custom-dialog-styles';
+    style.textContent =
+      '#custom-dialog-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;font-family:inherit}' +
+      '#custom-dialog-overlay.show{display:flex}' +
+      '#custom-dialog-box{background:white;padding:24px;border-radius:8px;max-width:440px;width:90%;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:cd-pop 0.15s ease-out}' +
+      '@keyframes cd-pop{from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1}}' +
+      '#custom-dialog-title{font-size:16px;font-weight:600;color:#1a5c42;margin:0 0 12px 0}' +
+      '#custom-dialog-message{font-size:14px;color:#333;margin:0 0 16px 0;line-height:1.5}' +
+      '#custom-dialog-input{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:inherit;margin-bottom:16px;box-sizing:border-box}' +
+      '#custom-dialog-input:focus{outline:none;border-color:#1a5c42}' +
+      '#custom-dialog-buttons{display:flex;gap:10px;justify-content:flex-end}' +
+      '.cd-btn{padding:9px 18px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;font-family:inherit}' +
+      '.cd-btn-cancel{background:#e0e0e0;color:#333}' +
+      '.cd-btn-cancel:hover{background:#ccc}' +
+      '.cd-btn-confirm{background:#1a5c42;color:white}' +
+      '.cd-btn-confirm:hover{background:#155236}' +
+      '.cd-btn-danger{background:#e74c3c;color:white}' +
+      '.cd-btn-danger:hover{background:#c0392b}';
+    document.head.appendChild(style);
+  }
+
+  // Inject HTML once
+  if (!document.getElementById('custom-dialog-overlay')) {
+    var overlay = document.createElement('div');
+    overlay.id = 'custom-dialog-overlay';
+    overlay.innerHTML =
+      '<div id="custom-dialog-box" role="dialog" aria-modal="true">' +
+        '<h3 id="custom-dialog-title">Confirm</h3>' +
+        '<p id="custom-dialog-message"></p>' +
+        '<input id="custom-dialog-input" type="text" style="display:none" />' +
+        '<div id="custom-dialog-buttons"></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+  }
+
+  function show(opts) {
+    return new Promise(function(resolve) {
+      var overlay = document.getElementById('custom-dialog-overlay');
+      var titleEl = document.getElementById('custom-dialog-title');
+      var msgEl   = document.getElementById('custom-dialog-message');
+      var inputEl = document.getElementById('custom-dialog-input');
+      var btnsEl  = document.getElementById('custom-dialog-buttons');
+
+      titleEl.textContent = opts.title || 'Confirm';
+      msgEl.textContent   = opts.message || '';
+      btnsEl.innerHTML    = '';
+
+      if (opts.type === 'prompt') {
+        inputEl.style.display = 'block';
+        inputEl.value = opts.defaultValue || '';
+        inputEl.placeholder = opts.placeholder || '';
+      } else {
+        inputEl.style.display = 'none';
+      }
+
+      function cleanup(result) {
+        overlay.classList.remove('show');
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      }
+
+      function onKey(e) {
+        if (e.key === 'Escape') cleanup(opts.type === 'prompt' ? null : false);
+        if (e.key === 'Enter' && opts.type === 'prompt') {
+          e.preventDefault();
+          cleanup(inputEl.value);
+        }
+      }
+
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cd-btn cd-btn-cancel';
+      cancelBtn.textContent = opts.cancelText || 'Cancel';
+      cancelBtn.onclick = function() { cleanup(opts.type === 'prompt' ? null : false); };
+
+      var okBtn = document.createElement('button');
+      okBtn.className = 'cd-btn ' + (opts.danger ? 'cd-btn-danger' : 'cd-btn-confirm');
+      okBtn.textContent = opts.okText || 'OK';
+      okBtn.onclick = function() {
+        cleanup(opts.type === 'prompt' ? inputEl.value : true);
+      };
+
+      btnsEl.appendChild(cancelBtn);
+      btnsEl.appendChild(okBtn);
+
+      overlay.classList.add('show');
+      document.addEventListener('keydown', onKey);
+
+      setTimeout(function() {
+        if (opts.type === 'prompt') inputEl.focus();
+        else okBtn.focus();
+      }, 50);
+    });
+  }
+
+  window.customConfirm = function(message, options) {
+    options = options || {};
+    return show({
+      type: 'confirm',
+      title: options.title || 'Confirm',
+      message: message,
+      okText: options.okText || 'OK',
+      cancelText: options.cancelText || 'Cancel',
+      danger: options.danger || false
+    });
+  };
+
+  window.customPrompt = function(message, defaultValue, options) {
+    options = options || {};
+    return show({
+      type: 'prompt',
+      title: options.title || 'Input',
+      message: message,
+      defaultValue: defaultValue || '',
+      placeholder: options.placeholder || '',
+      okText: options.okText || 'OK',
+      cancelText: options.cancelText || 'Cancel'
+    });
+  };
+})();

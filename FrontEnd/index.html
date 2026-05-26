@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>📚 Librario</h1>
+      <nav>
+        <a href="index.html" class="active">Dashboard</a>
+        <a href="catalog.html">Catalog</a>
+        <a href="loans.html">My Loans</a>
+        <a href="wishlist.html">Wishlist</a>
+        <a href="reservations.html">Reservations</a>
+        <a href="fines.html">Fines</a>
+        <a href="rooms.html">Rooms</a>
+        <a href="events.html">Events</a>
+        <a href="donations.html">Donate</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+        <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Welcome back, <span id="user-name"></span>!</h2>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="stat-active">—</div>
+        <div class="stat-label">Active Loans</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="stat-total">—</div>
+        <div class="stat-label">Books Read</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="stat-reservations">—</div>
+        <div class="stat-label">Reservations</div>
+      </div>
+      <div class="stat-card fine-card">
+        <div class="stat-number" id="stat-fines">€0.00</div>
+        <div class="stat-label">Outstanding Fines</div>
+      </div>
+    </div>
+
+    <!-- Reading goal -->
+    <section class="card">
+      <h3>Reading goal <span id="year-label"></span></h3>
+      <div class="goal-row">
+        <span id="goal-progress-text">—</span>
+        <button onclick="editGoal()" class="btn-sm">Set goal</button>
+      </div>
+      <div class="progress-track"><div class="progress-bar" id="goal-bar" style="width:0%"></div></div>
+    </section>
+
+    <!-- Active loans -->
+    <section class="card">
+      <h3>Active loans</h3>
+      <div id="active-loans-list" class="loans-list"></div>
+    </section>
+
+    <!-- Recommendations -->
+    <section class="card">
+      <h3>Recommended for you</h3>
+      <div id="recommendations" class="book-grid"></div>
+    </section>
+  </main>
+
+  <script src="auth.js"></script>
+<script src="dialog.js"></script>
+  <script>
+    var API = 'http://localhost:5273/api';
+
+    async function loadDashboard() {
+      var userId = getCurrentUserId();
+      document.getElementById('user-name').textContent = getCurrentUserName();
+      document.getElementById('year-label').textContent = new Date().getFullYear();
+
+      // Loans
+      var loans = await fetch(API + '/loans/user/' + userId).then(r => r.json()).catch(() => []);
+      var active = loans.filter(function(l) { return l.status === 'Active' || l.status === 'Overdue'; });
+      document.getElementById('stat-active').textContent = active.length;
+      document.getElementById('stat-total').textContent  = loans.filter(function(l) { return l.status === 'Returned'; }).length;
+
+      // Reservations
+      var reservations = await fetch(API + '/reservations/user/' + userId).then(r => r.json()).catch(() => []);
+      document.getElementById('stat-reservations').textContent = reservations.length;
+
+      // Fines
+      var fines = await fetch(API + '/fines/user/' + userId).then(r => r.json()).catch(() => []);
+      var outstanding = fines.filter(function(f) { return f.status === 'Unpaid' || f.status === 'Pending'; })
+        .reduce(function(sum, f) { return sum + (f.amountDue - f.amountPaid); }, 0);
+      document.getElementById('stat-fines').textContent = '€' + outstanding.toFixed(2);
+      if (outstanding > 0) document.querySelector('.fine-card').classList.add('has-fines');
+
+      // Active loans list
+      var list = document.getElementById('active-loans-list');
+      if (active.length === 0) {
+        list.innerHTML = '<p class="empty">No active loans. <a href="catalog.html">Browse catalog →</a></p>';
+      } else {
+        list.innerHTML = active.map(function(l) {
+          var due = new Date(l.dueDate);
+          var today = new Date();
+          var diff = Math.ceil((due - today) / 86400000);
+          var cls = diff < 0 ? 'overdue' : diff <= 2 ? 'due-soon' : '';
+          return '<div class="loan-row ' + cls + '"><div><strong>' + l.book.title + '</strong><br><small>' + l.book.author + '</small></div><div class="due-badge ' + cls + '">' + (diff < 0 ? 'OVERDUE ' + Math.abs(diff) + 'd' : 'Due in ' + diff + 'd') + '</div></div>';
+        }).join('');
+      }
+
+      // Stats for goal
+      var stats = await fetch(API + '/stats/member/' + userId).then(r => r.json()).catch(() => null);
+      if (stats) {
+        var goal = stats.readingGoal || 0;
+        var done = stats.thisYear;
+        var pct  = goal > 0 ? Math.min(100, Math.round(done / goal * 100)) : 0;
+        document.getElementById('goal-progress-text').textContent = goal > 0 ? done + ' / ' + goal + ' books (' + pct + '%)' : 'No goal set';
+        document.getElementById('goal-bar').style.width = pct + '%';
+      }
+
+      // Recommendations
+      var rec = await fetch(API + '/stats/recommendations/' + userId).then(r => r.json()).catch(() => null);
+      var recEl = document.getElementById('recommendations');
+      if (rec && rec.books && rec.books.length > 0) {
+        recEl.innerHTML = rec.books.map(function(b) {
+          return '<div class="book-card-sm"><div class="book-title">' + b.title + '</div><div class="book-author">' + b.author + '</div><div class="book-rating">★ ' + (b.averageRating || 0).toFixed(1) + '</div><button onclick="dismissRec(' + b.id + ', this.parentElement)" class="btn-xs">✕</button></div>';
+        }).join('');
+      } else {
+        recEl.innerHTML = '<p class="empty">Borrow more books to get personalized recommendations!</p>';
+      }
+
+      // Notifications count
+      var notifs = await fetch(API + '/notifications/' + userId).then(r => r.json()).catch(() => []);
+      var unread = notifs.filter(function(n) { return !n.isRead; }).length;
+      var badge = document.getElementById('notif-count-badge');
+      if (badge) {
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    async function editGoal() {
+      var goal = await customPrompt('Set your reading goal for ' + new Date().getFullYear() + ':');
+      if (!goal || isNaN(parseInt(goal))) return;
+      await fetch(API + '/auth/profile/' + getCurrentUserId(), {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ readingGoal: parseInt(goal) })
+      });
+      loadDashboard();
+    }
+
+    async function dismissRec(bookId, el) {
+      await fetch(API + '/stats/dismiss', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ userId: getCurrentUserId(), bookId: bookId })
+      });
+      el.remove();
+    }
+
+    loadDashboard();
+  </script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>

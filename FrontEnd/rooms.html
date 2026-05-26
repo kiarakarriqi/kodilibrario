@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Study Rooms</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .room-card { background:white; border-radius:12px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,0.07); margin-bottom:16px; }
+    .room-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+    .room-title  { font-size:16px; font-weight:600; color:#1a5c42; }
+    .room-meta   { font-size:12px; color:#888; margin-top:2px; }
+    .room-amenities { font-size:12px; color:#555; background:#f0fdf9; padding:5px 10px; border-radius:6px; display:inline-block; margin-bottom:12px; }
+
+    .slots-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .slot-pill  {
+      padding:5px 12px; border-radius:20px; font-size:12px; font-weight:500;
+      cursor:pointer; border:1.5px solid #ddd; background:white; transition:all 0.15s;
+    }
+    .slot-pill.free     { background:#d4edda; border-color:#1a5c42; color:#155724; }
+    .slot-pill.free:hover { background:#1a5c42; color:white; }
+    .slot-pill.taken    { background:#f0f0f0; border-color:#ccc; color:#aaa; cursor:not-allowed; text-decoration:line-through; }
+    .slot-pill.selected { background:#1a5c42; color:white; border-color:#1a5c42; }
+
+    .booking-confirm { background:#e8f5ee; border-radius:10px; padding:14px; margin-top:12px; display:none; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html" class="active">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <h2>Study Room Booking</h2>
+
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;background:white;padding:14px 18px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07)">
+    <label style="font-size:14px;font-weight:500;color:#444">Select date:</label>
+    <input type="date" id="booking-date" onchange="loadRooms()" style="padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px">
+    <span style="font-size:12px;color:#888">Max 2 hours · Max 2 active bookings · Cancel up to 30 min before</span>
+  </div>
+
+  <div id="rooms-container"></div>
+</main>
+
+<script src="auth.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+  var selectedSlot = null;
+  var allRooms = [];
+  var allBookings = {};
+
+  // Set today as default
+  var today = new Date();
+  var todayStr = today.toISOString().split('T')[0];
+  document.getElementById('booking-date').value = todayStr;
+  document.getElementById('booking-date').min = todayStr;
+
+  async function loadRooms() {
+    var date = document.getElementById('booking-date').value;
+    if (!date) return;
+
+    var el = document.getElementById('rooms-container');
+    el.innerHTML = '<p style="color:#888;font-size:14px">Loading rooms…</p>';
+
+    allRooms = await fetch(API + '/rooms').then(r => r.json()).catch(() => []);
+    if (!allRooms.length) {
+      el.innerHTML = '<div class="card"><p class="empty">No study rooms available.</p></div>';
+      return;
+    }
+
+    // Fetch bookings for each room
+    allBookings = {};
+    for (var room of allRooms) {
+      var bookings = await fetch(API + '/rooms/' + room.id + '/bookings?date=' + date).then(r => r.json()).catch(() => []);
+      allBookings[room.id] = bookings;
+    }
+
+    renderRooms(date);
+  }
+
+  function renderRooms(date) {
+    var el = document.getElementById('rooms-container');
+    el.innerHTML = allRooms.map(function(room) {
+      var bookings = allBookings[room.id] || [];
+      var slots    = generateHourlySlots();
+
+      var slotsHtml = slots.map(function(slot) {
+        var isTaken = bookings.some(function(b) {
+          var bStart = timeToMinutes(b.startTime);
+          var bEnd   = timeToMinutes(b.endTime);
+          return bStart < slot.endMin && bEnd > slot.startMin && b.status !== 'Cancelled';
+        });
+
+        if (isTaken) {
+          return '<div class="slot-pill taken">' + slot.label + '</div>';
+        } else {
+          return '<div class="slot-pill free" onclick="selectSlot('+room.id+',\''+slot.start+'\',\''+slot.end+'\',\''+room.name.replace(/'/g,'')+'\',this)">' + slot.label + '</div>';
+        }
+      }).join('');
+
+      return '<div class="room-card" id="room-card-'+room.id+'">' +
+        '<div class="room-header">' +
+          '<div>' +
+            '<div class="room-title">'+room.name+'</div>' +
+            '<div class="room-meta">Floor: '+(room.floor||'N/A')+' · Capacity: '+room.capacity+' people</div>' +
+            '<div class="room-meta" style="margin-top:2px">'+room.description+'</div>' +
+          '</div>' +
+          '<span class="badge badge-active">Active</span>' +
+        '</div>' +
+        '<div class="room-amenities">🔌 '+room.amenities+'</div>' +
+        '<div style="font-size:13px;font-weight:500;margin-bottom:6px;color:#444">Available time slots for ' + formatDate(date) + ':</div>' +
+        '<div class="slots-grid">' + slotsHtml + '</div>' +
+        '<div class="booking-confirm" id="confirm-'+room.id+'">' +
+          '<div style="font-size:14px;font-weight:500;margin-bottom:10px">Confirm booking:</div>' +
+          '<div id="confirm-text-'+room.id+'" style="font-size:13px;color:#555;margin-bottom:10px"></div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button onclick="confirmBooking('+room.id+')" class="btn btn-green">✓ Book this slot</button>' +
+            '<button onclick="cancelSelection('+room.id+')" class="btn btn-gray">Cancel</button>' +
+          '</div>' +
+          '<div id="book-result-'+room.id+'" style="font-size:13px;margin-top:8px"></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function generateHourlySlots() {
+    var slots = [];
+    for (var h = 8; h < 20; h++) {
+      var startStr = pad(h) + ':00';
+      var endStr   = pad(h + 1) + ':00';
+      slots.push({
+        label:    startStr + '–' + endStr,
+        start:    startStr,
+        end:      endStr,
+        startMin: h * 60,
+        endMin:   (h + 1) * 60
+      });
+    }
+    return slots;
+  }
+
+  function timeToMinutes(timeStr) {
+    if (!timeStr) return 0;
+    var parts = timeStr.split(':');
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  }
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function formatDate(dateStr) {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    });
+  }
+
+  function selectSlot(roomId, start, end, roomName, el) {
+    // Deselect any previously selected slot in this room
+    var card = document.getElementById('room-card-' + roomId);
+    card.querySelectorAll('.slot-pill.selected').forEach(function(s) { s.classList.remove('selected'); s.classList.add('free'); });
+
+    el.classList.remove('free');
+    el.classList.add('selected');
+    selectedSlot = { roomId, start, end, roomName };
+
+    var date     = document.getElementById('booking-date').value;
+    var dateDisp = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    document.getElementById('confirm-text-' + roomId).textContent = roomName + ' · ' + dateDisp + ' · ' + start + ' – ' + end;
+    document.getElementById('confirm-' + roomId).style.display = 'block';
+    document.getElementById('book-result-' + roomId).textContent = '';
+  }
+
+  function cancelSelection(roomId) {
+    var card = document.getElementById('room-card-' + roomId);
+    card.querySelectorAll('.slot-pill.selected').forEach(function(s) { s.classList.remove('selected'); s.classList.add('free'); });
+    document.getElementById('confirm-' + roomId).style.display = 'none';
+    selectedSlot = null;
+  }
+
+  async function confirmBooking(roomId) {
+    if (!selectedSlot || selectedSlot.roomId !== roomId) return;
+    var date    = document.getElementById('booking-date').value;
+    var resEl   = document.getElementById('book-result-' + roomId);
+
+    var res = await fetch(API + '/rooms/book', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        roomId:      roomId,
+        userId:      getCurrentUserId(),
+        bookingDate: date + 'T00:00:00Z',
+        startTime:   selectedSlot.start + ':00',
+        endTime:     selectedSlot.end + ':00'
+      })
+    });
+    var d = await res.json();
+    if (res.ok) {
+      resEl.style.color = '#155724';
+      resEl.textContent = '✓ Room booked! ' + selectedSlot.start + '–' + selectedSlot.end + ' on ' + new Date(date+'T12:00:00').toLocaleDateString();
+      showToast('Room booked successfully!', 'success');
+      selectedSlot = null;
+      // Reload to show updated availability
+      setTimeout(function() { loadRooms(); }, 1500);
+    } else {
+      resEl.style.color = '#721c24';
+      resEl.textContent = '✗ ' + (d.message || 'Could not book this slot.');
+    }
+  }
+
+  loadRooms();
+</script>
+</body>
+</html>

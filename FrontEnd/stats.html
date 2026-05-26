@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Reading Stats</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="reservations.html">Reservations</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html" class="active">Stats</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <h2>Reading Statistics</h2>
+
+  <!-- Summary cards -->
+  <div class="stats-grid" style="margin-bottom:20px">
+    <div class="stat-card">
+      <div class="stat-number" id="s-total">—</div>
+      <div class="stat-label">Total loans</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="s-year">—</div>
+      <div class="stat-label">This year</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="s-month">—</div>
+      <div class="stat-label">This month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="s-returned">—</div>
+      <div class="stat-label">Completed reads</div>
+    </div>
+  </div>
+
+  <!-- Annual goal -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="margin:0">Annual reading goal <span id="year-tag"></span></h3>
+      <button onclick="setGoal()" class="btn btn-sm">Edit goal</button>
+    </div>
+    <div id="goal-text" style="font-size:14px;color:#555;margin-bottom:8px">No goal set.</div>
+    <div class="progress-track"><div class="progress-bar" id="goal-bar" style="width:0%"></div></div>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <h3 style="margin:0">For You</h3>
+        <p id="rec-source" style="margin:4px 0 0;font-size:13px;color:#888"></p>
+      </div>
+      <button onclick="loadRecommendations()" class="btn btn-sm">Refresh</button>
+    </div>
+    <div id="rec-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
+  </div>
+
+  <!-- Charts row -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="card">
+      <h3>Books borrowed per month</h3>
+      <canvas id="monthly-chart" height="180"></canvas>
+    </div>
+    <div class="card">
+      <h3>Top categories</h3>
+      <canvas id="category-chart" height="180"></canvas>
+    </div>
+  </div>
+  <!-- Change password moved to My Account page -->
+
+</main>
+
+<script src="auth.js"></script>
+<script src="dialog.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+  var monthlyChart, categoryChart;
+
+  async function loadStats() {
+    var stats = await fetch(API + '/stats/member/' + getCurrentUserId()).then(r => r.json()).catch(() => null);
+    if (!stats) return;
+
+    document.getElementById('s-total').textContent    = stats.totalLoans;
+    document.getElementById('s-year').textContent     = stats.thisYear;
+    document.getElementById('s-month').textContent    = stats.thisMonth;
+    document.getElementById('s-returned').textContent = stats.returned;
+    document.getElementById('year-tag').textContent   = new Date().getFullYear();
+
+    // Goal
+    if (stats.readingGoal) {
+      var pct = Math.min(100, Math.round(stats.thisYear / stats.readingGoal * 100));
+      document.getElementById('goal-text').textContent = stats.thisYear + ' / ' + stats.readingGoal + ' books (' + pct + '%)';
+      document.getElementById('goal-bar').style.width  = pct + '%';
+    }
+
+    // Monthly chart
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var counts  = stats.perMonth.map(function(m) { return m.count; });
+    if (monthlyChart) monthlyChart.destroy();
+    monthlyChart = new Chart(document.getElementById('monthly-chart'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [{ label: 'Books', data: counts,
+          backgroundColor: 'rgba(26,92,66,0.7)', borderColor: '#1a5c42',
+          borderWidth: 1, borderRadius: 4 }]
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    // Category chart
+    var cats   = stats.topCategories || [];
+    var labels = cats.map(function(c) { return c.category; });
+    var data   = cats.map(function(c) { return c.count; });
+    var colors = ['#1a5c42','#2b7a5e','#3d9970','#52b788','#74c69d'];
+    if (categoryChart) categoryChart.destroy();
+    if (cats.length) {
+      categoryChart = new Chart(document.getElementById('category-chart'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, data.length) }] },
+        options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+      });
+    } else {
+      document.getElementById('category-chart').parentElement.innerHTML += '<p class="empty">No category data yet.</p>';
+    }
+  }
+
+  async function setGoal() {
+    var goal = await customPrompt('Set reading goal for ' + new Date().getFullYear() + ':');
+    if (!goal || isNaN(parseInt(goal))) return;
+    await fetch(API + '/auth/profile/' + getCurrentUserId(), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ readingGoal: parseInt(goal) })
+    });
+    loadStats();
+  }
+
+  loadStats();
+  loadRecommendations();
+
+  async function loadRecommendations() {
+    var grid = document.getElementById('rec-grid');
+    var src  = document.getElementById('rec-source');
+    grid.innerHTML = '<p style="color:#aaa;font-size:13px;grid-column:1/-1">Loading…</p>';
+
+    var data = await fetch(API + '/stats/recommendations/' + getCurrentUserId())
+      .then(function(r){ return r.json(); })
+      .catch(function(){ return null; });
+
+    if (!data || !data.books || !data.books.length) {
+      grid.innerHTML = '<p style="color:#aaa;font-size:13px;grid-column:1/-1">No recommendations yet. Borrow a few books first!</p>';
+      return;
+    }
+
+    src.textContent = data.source === 'collaborative'
+      ? 'Based on readers with similar taste'
+      : 'Most popular in the library';
+
+    grid.innerHTML = data.books.map(function(b) {
+      var stars = b.averageRating > 0
+        ? '<span style="color:#f39c12;font-size:11px">' + b.averageRating.toFixed(1) + ' ★</span>'
+        : '';
+      var avail = b.availableCopies > 0
+        ? '<span style="color:#1a5c42;font-size:11px">Available</span>'
+        : '<span style="color:#aaa;font-size:11px">Unavailable</span>';
+      return '<div style="background:#f8faf9;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;position:relative">'
+        + '<button onclick="dismissRec(' + b.id + ',this.parentElement)" '
+        +   'title="Not interested" '
+        +   'style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:#ccc;font-size:14px;line-height:1;padding:2px">×</button>'
+        + '<div style="font-weight:600;font-size:13px;padding-right:16px;line-height:1.3">' + b.title + '</div>'
+        + '<div style="font-size:12px;color:#666">' + (b.author || '') + '</div>'
+        + (b.category ? '<div style="font-size:11px;color:#888;background:#e8f4ee;display:inline-block;padding:2px 7px;border-radius:10px;align-self:flex-start">' + b.category + '</div>' : '')
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">'
+        +   stars + avail
+        + '</div>'
+        + '<a href="catalog.html" style="margin-top:4px;text-align:center;background:#1a5c42;color:white;border-radius:6px;padding:5px 0;font-size:12px;text-decoration:none">View in catalog</a>'
+        + '</div>';
+    }).join('');
+  }
+
+  async function dismissRec(bookId, card) {
+    card.style.opacity = '0';
+    card.style.transition = 'opacity 0.25s';
+    await fetch(API + '/stats/dismiss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: getCurrentUserId(), bookId: bookId })
+    });
+    setTimeout(function() {
+      card.remove();
+      var grid = document.getElementById('rec-grid');
+      if (!grid.children.length)
+        grid.innerHTML = '<p style="color:#aaa;font-size:13px;grid-column:1/-1">No more recommendations. Check back later!</p>';
+    }, 260);
+  }
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>

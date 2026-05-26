@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — My Account</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .account-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media (max-width: 768px) { .account-grid { grid-template-columns:1fr; } }
+
+    .account-card {
+      background:white;
+      border-radius:14px;
+      padding:24px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.06);
+    }
+    .account-card h3 {
+      margin:0 0 18px;
+      font-size:17px;
+      color:#1a5c42;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .field {
+      margin-bottom:14px;
+    }
+    .field label {
+      display:block;
+      font-size:13px;
+      color:#555;
+      font-weight:500;
+      margin-bottom:6px;
+    }
+    .field input {
+      width:100%;
+      padding:10px 14px;
+      border:1.5px solid #e0e0e0;
+      border-radius:9px;
+      font-size:14px;
+      box-sizing:border-box;
+      transition:border-color 0.15s;
+    }
+    .field input:focus { outline:none; border-color:#1a5c42; }
+    .field input:disabled { background:#f5f5f5; color:#888; }
+
+    .profile-row {
+      display:flex;
+      justify-content:space-between;
+      padding:10px 0;
+      border-bottom:1px solid #f0f0f0;
+      font-size:14px;
+    }
+    .profile-row:last-child { border-bottom:none; }
+    .profile-row .label { color:#888; }
+    .profile-row .value { color:#222; font-weight:500; }
+
+    .role-badge {
+      padding:3px 10px;
+      border-radius:12px;
+      font-size:12px;
+      font-weight:600;
+    }
+    .role-Member { background:#d4edda; color:#155724; }
+    .role-Staff  { background:#cce5ff; color:#004085; }
+    .role-Admin  { background:#fff3cd; color:#856404; }
+
+    .pw-msg {
+      font-size:13px;
+      min-height:18px;
+      padding:4px 0;
+    }
+    .pw-msg.ok { color:#1a5c42; }
+    .pw-msg.err { color:#e74c3c; }
+    .pw-hint {
+      font-size:11px;
+      color:#aaa;
+      margin-top:4px;
+    }
+
+    .btn-action {
+      background:#1a5c42;
+      color:white;
+      border:none;
+      padding:10px 22px;
+      border-radius:9px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      transition:background 0.15s;
+    }
+    .btn-action:hover { background:#155236; }
+    .btn-action:disabled { background:#ccc; cursor:not-allowed; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="reservations.html">Reservations</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html" class="active">My Account</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <h2>My Account</h2>
+
+  <div class="account-grid">
+
+    <!-- Profile -->
+    <div class="account-card">
+      <h3>👤 Profile</h3>
+      <div class="profile-row">
+        <span class="label">Name</span>
+        <span class="value" id="prof-name">—</span>
+      </div>
+      <div class="profile-row">
+        <span class="label">Email</span>
+        <span class="value" id="prof-email">—</span>
+      </div>
+      <div class="profile-row">
+        <span class="label">Role</span>
+        <span class="value"><span class="role-badge" id="prof-role">—</span></span>
+      </div>
+      <div class="profile-row">
+        <span class="label">Member since</span>
+        <span class="value" id="prof-created">—</span>
+      </div>
+      <div class="profile-row">
+        <span class="label">Reading goal</span>
+        <span class="value" id="prof-goal">—</span>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="auth.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+
+  async function loadProfile() {
+    var uid = getCurrentUserId();
+    if (!uid) return;
+
+    // Pull name from session; fetch other fields from API
+    document.getElementById('prof-name').textContent  = getCurrentUserName();
+    var role = getCurrentUserRole();
+    var roleEl = document.getElementById('prof-role');
+    roleEl.textContent = role;
+    roleEl.className = 'role-badge role-' + role;
+
+    // Try to fetch full profile from /api/auth/profile/{id}
+    try {
+      var res = await fetch(API + '/auth/profile/' + uid);
+      if (res.ok) {
+        var u = await res.json();
+        if (u.email)     document.getElementById('prof-email').textContent   = u.email;
+        if (u.name)      document.getElementById('prof-name').textContent    = u.name;
+        if (u.createdAt) document.getElementById('prof-created').textContent = new Date(u.createdAt).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+        document.getElementById('prof-goal').textContent = u.readingGoal ? u.readingGoal + ' books / year' : 'Not set';
+      }
+    } catch(e) {}
+  }
+
+  async function changePassword() {
+    var cur  = document.getElementById('pw-current').value;
+    var nw   = document.getElementById('pw-new').value;
+    var conf = document.getElementById('pw-confirm').value;
+    var msg  = document.getElementById('pw-msg');
+    var btn  = document.getElementById('pw-btn');
+
+    msg.className = 'pw-msg';
+    msg.textContent = '';
+
+    if (!cur || !nw || !conf) { msg.className='pw-msg err'; msg.textContent='All fields are required.'; return; }
+    if (nw !== conf)           { msg.className='pw-msg err'; msg.textContent='New passwords do not match.'; return; }
+    if (nw.length < 6)         { msg.className='pw-msg err'; msg.textContent='New password must be at least 6 characters.'; return; }
+    if (cur === nw)            { msg.className='pw-msg err'; msg.textContent='New password must be different from current.'; return; }
+
+    btn.disabled = true;
+    msg.className = 'pw-msg'; msg.textContent = 'Saving…';
+
+    try {
+      var res = await fetch(API + '/auth/change-password/' + getCurrentUserId(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: cur, newPassword: nw })
+      });
+      var data = await res.json().catch(function(){ return {}; });
+
+      if (res.ok) {
+        msg.className = 'pw-msg ok';
+        msg.textContent = '✓ ' + (data.message || 'Password changed successfully!');
+        document.getElementById('pw-current').value = '';
+        document.getElementById('pw-new').value     = '';
+        document.getElementById('pw-confirm').value = '';
+      } else {
+        msg.className = 'pw-msg err';
+        msg.textContent = data.message || 'Error changing password.';
+      }
+    } catch(e) {
+      msg.className = 'pw-msg err';
+      msg.textContent = 'Server error. Try again.';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  loadProfile();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>

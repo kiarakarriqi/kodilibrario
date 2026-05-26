@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Notifications</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <h2>Notifications</h2>
+  <div id="notif-list"></div>
+</main>
+
+<script src="auth.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+
+  async function loadNotifications() {
+    var notifs = await fetch(API + '/notifications/' + getCurrentUserId()).then(r => r.json()).catch(() => []);
+    var el = document.getElementById('notif-list');
+    if (!notifs.length) {
+      el.innerHTML = '<div class="card"><p class="empty">No notifications.</p></div>';
+      return;
+    }
+    el.innerHTML = notifs.map(function(n) {
+      return '<div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;' + (n.isRead ? 'opacity:0.6' : 'border-left:4px solid #1a5c42') + '">' +
+        '<div><div style="font-size:14px">' + n.message + '</div><div style="font-size:11px;color:#aaa;margin-top:4px">' + new Date(n.createdAt).toLocaleString() + '</div></div>' +
+        (!n.isRead ? '<button onclick="markRead(' + n.id + ', this.parentElement)" class="btn btn-sm">Mark read</button>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  async function markRead(id, el) {
+    await fetch(API + '/notifications/' + id + '/read', { method: 'POST' });
+    el.style.opacity = '0.6';
+    el.style.borderLeft = 'none';
+    el.querySelector('button').remove();
+  }
+
+  loadNotifications();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>

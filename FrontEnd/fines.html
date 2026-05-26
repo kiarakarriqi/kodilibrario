@@ -1,0 +1,66 @@
+<!-- fines.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Librario — Fines</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><div class="header-inner"><h1>📚 Librario</h1><nav>
+  <a href="index.html">Dashboard</a><a href="catalog.html">Catalog</a>
+  <a href="loans.html">My Loans</a><a href="fines.html" class="active">Fines</a>
+  <a href="rooms.html">Rooms</a><a href="events.html">Events</a><a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+  <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+</nav></div></header>
+<main class="container">
+  <h2>My Fines</h2>
+  <div id="fines-list"></div>
+</main>
+<script src="auth.js"></script>
+<script>
+var API = 'http://localhost:5273/api';
+async function loadFines() {
+  var fines = await fetch(API + '/fines/user/' + getCurrentUserId()).then(r => r.json()).catch(() => []);
+  var el = document.getElementById('fines-list');
+  if (!fines.length) { el.innerHTML = '<div class="card"><p class="empty">No fines — great job returning books on time!</p></div>'; return; }
+  var total = fines.filter(f => f.status === 'Unpaid' || f.status === 'Pending').reduce((s,f) => s + (f.amountDue - f.amountPaid), 0);
+  el.innerHTML = '<div class="card" style="margin-bottom:12px"><strong>Total outstanding: <span style="color:#e67e22">€' + total.toFixed(2) + '</span></strong></div>' +
+    fines.map(f => '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong>' + f.book + '</strong><br><small>Due: ' + new Date(f.dueDate).toLocaleDateString() + (f.returnDate ? ' | Returned: ' + new Date(f.returnDate).toLocaleDateString() : '') + '</small></div><div style="text-align:right"><div>€' + f.amountDue.toFixed(2) + (f.amountPaid > 0 ? ' (paid: €' + f.amountPaid.toFixed(2) + ')' : '') + '</div><span class="badge badge-' + f.status.toLowerCase() + '">' + f.status + '</span>' + (f.status === 'Unpaid' ? '<br><button onclick="requestPayment(' + f.id + ')" class="btn btn-orange" style="margin-top:6px;font-size:12px">Request Payment</button>' : '') + (f.waiverReason ? '<br><small style="color:#666">Waived: ' + f.waiverReason + '</small>' : '') + '</div></div></div>').join('');
+}
+async function requestPayment(id) {
+  var res = await fetch(API + '/fines/' + id + '/request-payment', {method:'POST'});
+  var d = await res.json();
+  showToast(d.message || (res.ok ? 'Payment requested!' : 'Error'), res.ok ? 'success' : 'error');
+  loadFines();
+}
+loadFines();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body></html>

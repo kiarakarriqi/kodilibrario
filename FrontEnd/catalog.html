@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Catalog</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ─── Catalog layout ─── */
+    .catalog-hero {
+      background: linear-gradient(135deg, #1a5c42 0%, #2b7a5e 100%);
+      border-radius: 18px;
+      padding: 32px 28px;
+      color: white;
+      margin-bottom: 26px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      box-shadow: 0 8px 24px rgba(26,92,66,0.25);
+    }
+    .catalog-hero h2 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 700;
+      color: white;
+    }
+    .catalog-hero p {
+      margin: 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .catalog-hero .hero-stats {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+    }
+    .catalog-hero .hero-stats div {
+      text-align: center;
+    }
+    .catalog-hero .hero-stats .num {
+      font-size: 22px;
+      font-weight: 700;
+      display: block;
+    }
+
+    .filters-bar {
+      background: white;
+      border-radius: 14px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filters-bar .search-wrap {
+      flex: 1;
+      min-width: 220px;
+      position: relative;
+    }
+    .filters-bar .search-wrap input {
+      width: 100%;
+      padding: 10px 14px 10px 38px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 14px;
+      box-sizing: border-box;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .filters-bar .search-wrap input:focus {
+      outline: none;
+      border-color: #1a5c42;
+      box-shadow: 0 0 0 3px rgba(26,92,66,0.1);
+    }
+    .filters-bar .search-wrap::before {
+      content: '🔍';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .filters-bar select {
+      padding: 10px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+      min-width: 180px;
+    }
+    .filters-bar select:focus { outline: none; border-color: #1a5c42; }
+    .results-count {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 14px;
+    }
+
+    /* ─── Book cards ─── */
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 22px;
+    }
+    .book-card {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .book-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 14px 32px rgba(0,0,0,0.14);
+    }
+    .book-card:hover .book-cover img,
+    .book-card:hover .book-cover-placeholder {
+      transform: scale(1.04);
+    }
+    .book-cover {
+      position: relative;
+      width: 100%;
+      height: 240px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #f8faf9 0%, #e8f4ee 100%);
+    }
+    .book-cover img,
+    .book-cover-placeholder {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+      display: block;
+    }
+    .book-cover-placeholder {
+      background: linear-gradient(135deg, #1a5c42, #2b7a5e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 54px;
+      color: white;
+    }
+    .book-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .badge-available { background: #d4edda; color: #155724; }
+    .badge-unavail   { background: #f8d7da; color: #721c24; }
+    .book-category-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.95);
+      color: #1a5c42;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      backdrop-filter: blur(4px);
+    }
+
+    .book-info {
+      padding: 14px 16px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .book-info .title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #1a1a1a;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      min-height: 38px;
+    }
+    .book-info .author {
+      color: #666;
+      font-size: 12px;
+      font-style: italic;
+    }
+    .book-info .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .book-rating {
+      font-size: 12px;
+      color: #f39c12;
+      font-weight: 600;
+    }
+    .copies-info {
+      font-size: 11px;
+      color: #888;
+    }
+    .empty-state {
+      grid-column: 1 / -1;
+      padding: 60px 20px;
+      text-align: center;
+      color: #888;
+    }
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+
+    /* Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; justify-content:center; align-items:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:white; border-radius:16px; padding:28px; width:90%; max-width:540px; max-height:90vh; overflow-y:auto; animation:slideIn 0.3s ease; }
+    @keyframes slideIn { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+    .modal-book-header { display:flex; gap:16px; margin-bottom:20px; }
+    .modal-cover { width:80px; height:110px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+    .modal-cover-placeholder { width:80px; height:110px; border-radius:8px; background:linear-gradient(135deg,#1a5c42,#2b7a5e); display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; color:white; }
+    .modal-meta h3 { font-size:17px; font-weight:600; margin-bottom:4px; }
+    .modal-meta .author { color:#666; font-size:14px; margin-bottom:4px; }
+    .modal-meta .cat { font-size:12px; color:#999; }
+    .modal-meta .rating { color:#f39c12; font-size:13px; margin-top:4px; }
+
+    .info-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    .info-pill { padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+    .pill-green { background:#d4edda; color:#155724; }
+    .pill-red   { background:#f8d7da; color:#721c24; }
+    .pill-blue  { background:#cce5ff; color:#004085; }
+
+    /* Days selector */
+    .days-selector { margin:14px 0; }
+    .days-selector label { font-size:13px; font-weight:500; color:#444; display:block; margin-bottom:6px; }
+    .days-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .day-btn { padding:6px 14px; border:1.5px solid #ddd; border-radius:20px; font-size:13px; cursor:pointer; background:white; transition:all 0.15s; }
+    .day-btn:hover { border-color:#1a5c42; color:#1a5c42; }
+    .day-btn.selected { background:#1a5c42; color:white; border-color:#1a5c42; }
+
+    /* Reviews */
+    .reviews-section { margin-top:16px; border-top:1px solid #eee; padding-top:14px; }
+    .reviews-section h4 { font-size:14px; font-weight:600; margin-bottom:10px; }
+    .review-item { padding:8px 0; border-bottom:1px solid #f5f5f5; font-size:13px; }
+    .review-stars { color:#f39c12; }
+
+    /* Review form */
+    .review-form { background:#f8fdf9; border-radius:10px; padding:14px; margin-top:14px; }
+    .review-form h4 { font-size:14px; font-weight:600; margin-bottom:10px; color:#1a5c42; }
+    .stars-input { display:flex; gap:6px; margin-bottom:10px; }
+    .star-btn { font-size:26px; cursor:pointer; color:#ddd; transition:color 0.1s; background:none; border:none; padding:0; }
+    .star-btn.lit { color:#f39c12; }
+    .review-form textarea { width:100%; padding:9px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; min-height:70px; font-family:inherit; resize:vertical; }
+    .review-form textarea:focus { outline:none; border-color:#1a5c42; }
+
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html" class="active">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="reservations.html">Reservations</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="catalog-hero">
+    <div>
+      <h2>📚 Book Catalog</h2>
+      <p>Discover, borrow, and reserve books from our collection</p>
+    </div>
+    <div class="hero-stats">
+      <div><span class="num" id="hero-total">—</span><span>Total books</span></div>
+      <div><span class="num" id="hero-available">—</span><span>Available copies</span></div>
+    </div>
+  </div>
+
+  <div class="filters-bar">
+    <div class="search-wrap">
+      <input type="text" id="search" placeholder="Search by title or author…" oninput="loadBooks()">
+    </div>
+    <select id="cat-filter" onchange="loadBooks()">
+      <option value="">All categories</option>
+    </select>
+    <select id="avail-filter" onchange="loadBooks()">
+      <option value="">All books</option>
+      <option value="available">Available only</option>
+    </select>
+  </div>
+
+  <div class="results-count" id="results-count"></div>
+  <div id="books-grid" class="catalog-grid"></div>
+</main>
+
+<!-- Book detail modal -->
+<div class="modal-overlay" id="book-modal">
+  <div class="modal">
+
+    <div class="modal-book-header">
+      <div id="modal-cover-wrap"></div>
+      <div class="modal-meta">
+        <h3 id="modal-title"></h3>
+        <div class="author" id="modal-author"></div>
+        <div class="cat" id="modal-category"></div>
+        <div id="modal-isbn" style="font-size:11px;color:#bbb;margin-top:2px"></div>
+        <div class="rating" id="modal-rating"></div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <span id="modal-avail-pill" class="info-pill"></span>
+      <span id="modal-donated" class="info-pill pill-blue" style="display:none"></span>
+    </div>
+
+    <!-- Days selector (shown only when borrowing) -->
+    <div class="days-selector" id="days-selector" style="display:none">
+      <label>How many days do you want to borrow? (max 30)</label>
+      <div class="days-row">
+        <button class="day-btn selected" onclick="selectDays(1, this)">1 days</button>
+        <button class="day-btn selected" onclick="selectDays(7, this)">7 days</button>
+        <button class="day-btn" onclick="selectDays(14, this)">14 days</button>
+        <button class="day-btn" onclick="selectDays(21, this)">21 days</button>
+        <button class="day-btn" onclick="selectDays(30, this)">30 days</button>
+      </div>
+      <div style="font-size:12px;color:#888;margin-top:6px">Due date: <strong id="due-date-preview"></strong></div>
+    </div>
+
+
+    <!-- Deposit note -->
+    <div id="deposit-note" style="display:none;background:#fff9e6;border:1.5px solid #f39c12;border-radius:8px;padding:12px 14px;margin:10px 0">
+      <div style="font-size:13px;font-weight:600;color:#d4850a;margin-bottom:4px">💶 Cash deposit required</div>
+      <div style="font-size:12px;color:#666">When you come to collect the book at the library desk, you will need to leave a <strong>cash deposit</strong> as a guarantee. The deposit will be returned to you when you bring the book back.</div>
+    </div>
+
+    <!-- Reviews -->
+    <div class="reviews-section">
+      <h4>Reviews</h4>
+      <div id="modal-reviews"></div>
+    </div>
+
+    <!-- Review form (shown only for returned loans) -->
+    <div class="review-form" id="review-form-section" style="display:none">
+      <h4>Leave your review</h4>
+      <div class="stars-input" id="star-picker"></div>
+      <textarea id="review-text" placeholder="Write a review (optional, max 500 chars)" maxlength="500"></textarea>
+      <button onclick="submitReview()" class="btn btn-green" style="margin-top:8px;width:100%">Submit Review</button>
+      <div id="review-result" style="font-size:12px;margin-top:6px"></div>
+    </div>
+
+    <!-- Terms checkbox — shfaqet kur member klikon Borrow -->
+    <div id="borrow-terms" style="display:none;background:#f0fdf9;border:1.5px solid #1a5c42;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;color:#1a5c42;margin-bottom:10px">📋 Before you borrow, please confirm:</div>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="term-1" onchange="checkTerms()" style="margin-top:3px;width:16px;height:16px;accent-color:#1a5c42;flex-shrink:0">
+        <span style="font-size:13px;color:#333">I will return this book by the due date shown above.</span>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="term-2" onchange="checkTerms()" style="margin-top:3px;width:16px;height:16px;accent-color:#1a5c42;flex-shrink:0">
+        <span style="font-size:13px;color:#333">I understand that a fine of <strong>€0.50 per day</strong> will be applied if I return the book late (1-day grace period applies).</span>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" id="term-3" onchange="checkTerms()" style="margin-top:3px;width:16px;height:16px;accent-color:#1a5c42;flex-shrink:0">
+        <span style="font-size:13px;color:#333">I understand that if my unpaid fines exceed <strong>€5.00</strong>, I will be blocked from borrowing further books until the balance is settled.</span>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button id="btn-wishlist" class="btn btn-gray" onclick="toggleWishlist()">♡ Wishlist</button>
+      <button id="btn-borrow"  class="btn btn-green" onclick="showBorrowConfirm()">📋 Request to Borrow</button>
+      <button id="btn-confirm-borrow" class="btn btn-green" onclick="submitBorrowRequest()" style="display:none;opacity:0.4;cursor:not-allowed" disabled>✓ Confirm Borrow</button>
+      <button id="btn-reserve" class="btn btn-blue"  onclick="reserveBook()">Reserve</button>
+      <button onclick="closeModal()" class="btn btn-gray">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="auth.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+  var currentBook = null;
+  var selectedDays = 7;
+  var currentRating = 0;
+  var eligibleLoanId = null;
+
+  // ─── LOAD CATEGORIES ─────────────────────────────────────────────────────
+  async function loadCategories() {
+    var cats = await fetch(API + '/categories').then(r => r.json()).catch(() => []);
+    var sel  = document.getElementById('cat-filter');
+    cats.forEach(function(c) {
+      var o = document.createElement('option');
+      o.value = c.id; o.textContent = c.name;
+      sel.appendChild(o);
+    });
+  }
+
+  // ─── LOAD BOOKS ──────────────────────────────────────────────────────────
+  async function loadBooks() {
+    var search = document.getElementById('search').value;
+    var cat    = document.getElementById('cat-filter').value;
+    var avail  = document.getElementById('avail-filter').value;
+    var url    = API + '/books?';
+    if (search) url += 'search=' + encodeURIComponent(search) + '&';
+    if (cat)    url += 'categoryId=' + cat;
+
+    var books = await fetch(url).then(r => r.json()).catch(() => []);
+
+    // Client-side availability filter
+    if (avail === 'available') {
+      books = books.filter(function(b) { return b.availableCopies > 0; });
+    }
+
+    var grid  = document.getElementById('books-grid');
+    var countEl = document.getElementById('results-count');
+
+    // Hero stats — independent of filters.
+    // Total books = number of distinct titles in the catalog.
+    // Available copies = sum of available copies across all titles.
+    var heroTotal = document.getElementById('hero-total');
+    var heroAvail = document.getElementById('hero-available');
+    if (heroTotal || heroAvail) {
+      try {
+        var allBooks = await fetch(API + '/books').then(r => r.json());
+        var totalTitles = allBooks.length;
+        var availCopies = allBooks.reduce(function(s, b){ return s + (b.availableCopies || 0); }, 0);
+        if (heroTotal) heroTotal.textContent = totalTitles;
+        if (heroAvail) heroAvail.textContent = availCopies;
+      } catch(e) {
+        if (heroTotal) heroTotal.textContent = '—';
+        if (heroAvail) heroAvail.textContent = '—';
+      }
+    }
+
+    if (!books.length) {
+      countEl.textContent = '';
+      grid.innerHTML = '<div class="empty-state">' +
+        '<div class="icon">📭</div>' +
+        '<div style="font-size:15px;font-weight:600;color:#555;margin-bottom:4px">No books found</div>' +
+        '<div style="font-size:13px">Try a different search term or category.</div>' +
+        '</div>';
+      return;
+    }
+
+    countEl.textContent = 'Showing ' + books.length + ' book' + (books.length === 1 ? '' : 's');
+
+    grid.innerHTML = books.map(function(b) {
+      var coverUrl = b.isbn ? 'https://covers.openlibrary.org/b/isbn/' + b.isbn + '-M.jpg' : null;
+      var coverHtml = coverUrl
+        ? '<img src="' + coverUrl + '" alt="' + escapeAttr(b.title) + '" onerror="this.outerHTML=\'<div class=&quot;book-cover-placeholder&quot;>📖</div>\'">'
+        : '<div class="book-cover-placeholder">📖</div>';
+
+      var availBadge = b.availableCopies > 0
+        ? '<span class="book-badge badge-available">✓ Available</span>'
+        : '<span class="book-badge badge-unavail">✗ On loan</span>';
+
+      var categoryName = b.category && (b.category.name || b.category);
+      var categoryBadge = categoryName
+        ? '<span class="book-category-badge">' + escapeHtml(categoryName) + '</span>'
+        : '';
+
+      var rating = b.reviewCount > 0
+        ? '<div class="book-rating">★ ' + b.averageRating.toFixed(1) + ' <span style="color:#aaa;font-weight:400">(' + b.reviewCount + ')</span></div>'
+        : '<div class="book-rating" style="color:#bbb">No ratings</div>';
+
+      var copies = b.availableCopies > 0
+        ? '<div class="copies-info">' + b.availableCopies + ' / ' + b.totalCopies + ' copies</div>'
+        : '<div class="copies-info">All ' + b.totalCopies + ' borrowed</div>';
+
+      var author = b.author && (b.author.name || b.author) || 'Unknown author';
+
+      return '<div class="book-card" onclick="openBook(' + b.id + ')">' +
+        '<div class="book-cover">' +
+          availBadge +
+          categoryBadge +
+          coverHtml +
+        '</div>' +
+        '<div class="book-info">' +
+          '<div class="title">' + escapeHtml(b.title) + '</div>' +
+          '<div class="author">by ' + escapeHtml(author) + '</div>' +
+          '<div class="meta-row">' +
+            rating +
+            copies +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Tiny helpers (avoid breaking if title contains quotes/apostrophes/HTML)
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  // ─── OPEN BOOK MODAL ─────────────────────────────────────────────────────
+  async function openBook(id) {
+    var b = await fetch(API + '/books/' + id).then(r => r.json()).catch(() => null);
+    if (!b) return;
+    currentBook = b;
+    selectedDays = 7;
+    currentRating = 0;
+    eligibleLoanId = null;
+
+    // Cover
+    var coverWrap = document.getElementById('modal-cover-wrap');
+    var isbn = b.isbn || (b.iSBN);
+    if (isbn) {
+      coverWrap.innerHTML = '<img class="modal-cover" src="https://covers.openlibrary.org/b/isbn/' + isbn + '-M.jpg" onerror="this.outerHTML=\'<div class=modal-cover-placeholder>📖</div>\'">';
+    } else {
+      coverWrap.innerHTML = '<div class="modal-cover-placeholder">📖</div>';
+    }
+
+    // Meta
+    document.getElementById('modal-title').textContent    = b.title;
+    document.getElementById('modal-author').textContent   = b.author?.name || b.author || '';
+    document.getElementById('modal-category').textContent = b.category?.name || b.category || '';
+    document.getElementById('modal-isbn').textContent     = isbn ? 'ISBN: ' + isbn : '';
+    document.getElementById('modal-rating').textContent   = b.reviewCount > 0
+      ? '★ ' + (b.averageRating || 0).toFixed(1) + ' (' + b.reviewCount + ' reviews)'
+      : 'No ratings yet';
+
+    // Availability pill
+    var avPill = document.getElementById('modal-avail-pill');
+    if (b.availableCopies > 0) {
+      avPill.textContent = '✓ Available — ' + b.availableCopies + ' of ' + b.totalCopies + ' copies';
+      avPill.className = 'info-pill pill-green';
+    } else {
+      avPill.textContent = '✗ All ' + b.totalCopies + ' copies on loan';
+      avPill.className = 'info-pill pill-red';
+    }
+
+    // Donated
+    var donEl = document.getElementById('modal-donated');
+    if (b.donatedBy) {
+      donEl.style.display = 'inline-block';
+      donEl.textContent = '💚 Donated by ' + (b.donatedBy.name || b.donatedBy);
+    } else {
+      donEl.style.display = 'none';
+    }
+
+    // Buttons
+    var borrowBtn  = document.getElementById('btn-borrow');
+    var confirmBtn = document.getElementById('btn-confirm-borrow');
+    var reserveBtn = document.getElementById('btn-reserve');
+    var daysDiv    = document.getElementById('days-selector');
+
+    borrowBtn.style.display  = b.availableCopies > 0 ? 'inline-block' : 'none';
+    confirmBtn.style.display = 'none';
+    reserveBtn.style.display = b.availableCopies === 0 ? 'inline-block' : 'none';
+    daysDiv.style.display    = 'none';
+    updateDueDate();
+
+    // Reviews
+    await loadReviews(id);
+
+    // Check if member can review (has returned loan, no review yet)
+    var userId = getCurrentUserId();
+    if (userId) {
+      var loans = await fetch(API + '/loans/user/' + userId).then(r => r.json()).catch(() => []);
+      var eligible = loans.find(function(l) {
+        return l.book && l.book.id === id && l.status === 'Returned' && !l.hasReview;
+      });
+      if (eligible) {
+        eligibleLoanId = eligible.id;
+        document.getElementById('review-form-section').style.display = 'block';
+        buildStars();
+      } else {
+        document.getElementById('review-form-section').style.display = 'none';
+      }
+    }
+
+    document.getElementById('book-modal').classList.add('open');
+  }
+
+  async function loadReviews(bookId) {
+    var reviews = await fetch(API + '/reviews/book/' + bookId).then(r => r.json()).catch(() => []);
+    var el = document.getElementById('modal-reviews');
+    if (!reviews.length) {
+      el.innerHTML = '<p style="color:#999;font-size:13px">No reviews yet. Be the first!</p>';
+      return;
+    }
+    el.innerHTML = reviews.slice(0, 5).map(function(r) {
+      return '<div class="review-item">' +
+        '<span class="review-stars">' + '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) + '</span> ' +
+        '<strong style="font-size:12px">' + r.memberName + '</strong>' +
+        (r.reviewText ? '<div style="color:#555;margin-top:2px">' + r.reviewText + '</div>' : '') +
+        '<div style="font-size:11px;color:#bbb;margin-top:2px">' + new Date(r.createdAt).toLocaleDateString() + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ─── DAYS SELECTOR ───────────────────────────────────────────────────────
+  function selectDays(days, btn) {
+    selectedDays = days;
+    document.querySelectorAll('.day-btn').forEach(function(b) { b.classList.remove('selected'); });
+    btn.classList.add('selected');
+    updateDueDate();
+  }
+
+  function updateDueDate() {
+    var due = new Date();
+    due.setDate(due.getDate() + selectedDays);
+    var el = document.getElementById('due-date-preview');
+    if (el) el.textContent = due.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  }
+
+  function showBorrowConfirm() {
+    document.getElementById('days-selector').style.display = 'block';
+    var dn = document.getElementById('deposit-note'); if(dn) dn.style.display='block';
+    document.getElementById('borrow-terms').style.display  = 'block';
+    document.getElementById('btn-borrow').style.display    = 'none';
+    document.getElementById('btn-confirm-borrow').style.display = 'inline-block';
+    // Reset checkboxes
+    ['term-1','term-2','term-3'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.checked = false;
+    });
+    checkTerms();
+    updateDueDate();
+  }
+
+  function checkTerms() {
+    var t1 = document.getElementById('term-1');
+    var t2 = document.getElementById('term-2');
+    var t3 = document.getElementById('term-3');
+    var btn = document.getElementById('btn-confirm-borrow');
+    if (!t1 || !t2 || !t3 || !btn) return;
+    var allChecked = t1.checked && t2.checked && t3.checked;
+    btn.disabled = !allChecked;
+    btn.style.opacity = allChecked ? '1' : '0.4';
+    btn.style.cursor = allChecked ? 'pointer' : 'not-allowed';
+  }
+
+  // ─── BORROW ──────────────────────────────────────────────────────────────
+  async function submitBorrowRequest() {
+    var btn = document.getElementById('btn-confirm-borrow');
+
+    // Guard: ensure book is loaded
+    if (!currentBook || !currentBook.id) {
+      showToast('No book selected. Please reopen the book.', 'error');
+      return;
+    }
+
+    // Guard: ensure all three terms are checked (button can be enabled via DOM tricks)
+    var t1 = document.getElementById('term-1');
+    var t2 = document.getElementById('term-2');
+    var t3 = document.getElementById('term-3');
+    if (!t1.checked || !t2.checked || !t3.checked) {
+      showToast('Please confirm all three terms before borrowing.', 'warning');
+      return;
+    }
+
+    // Guard: ensure user is logged in
+    var userId = getCurrentUserId();
+    if (!userId) {
+      showToast('You must be logged in to borrow.', 'error');
+      return;
+    }
+
+    // Prevent double-click
+    btn.disabled = true;
+    var originalText = btn.textContent;
+    btn.textContent = 'Submitting…';
+
+    try {
+      var res = await fetch(API + '/borrowrequest', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          userId: userId,
+          bookId: currentBook.id,
+          days:   selectedDays,
+          notes:  null
+        })
+      });
+
+      var d = {};
+      try { d = await res.json(); } catch(e) {}
+
+      if (res.ok) {
+        var expires = d.expiresAt
+          ? new Date(d.expiresAt).toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})
+          : 'soon';
+        showToast('Request submitted! Come to the library desk by ' + expires, 'success');
+        closeModal();
+        loadBooks();
+      } else {
+        showToast(d.message || ('Could not submit request (HTTP ' + res.status + ').'), 'error');
+      }
+    } catch(err) {
+      console.error('Borrow request failed:', err);
+      showToast('Network error. Make sure the API is running and try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+
+  // ─── RESERVE ─────────────────────────────────────────────────────────────
+  async function reserveBook() {
+    var res = await fetch(API + '/reservations', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: getCurrentUserId(), bookId: currentBook.id })
+    });
+    var d = await res.json();
+    if (res.ok) {
+      showToast('Reserved! You are #' + d.queuePosition + ' in queue. You will be notified when available.', 'success');
+      closeModal();
+    } else {
+      showToast(d.message || 'Could not reserve.', 'error');
+    }
+  }
+
+  // ─── WISHLIST ─────────────────────────────────────────────────────────────
+  async function toggleWishlist() {
+    var res = await fetch(API + '/wishlist', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: getCurrentUserId(), bookId: currentBook.id })
+    });
+    var d = await res.json();
+    showToast(d.message || 'Added to wishlist!', 'success');
+    document.getElementById('btn-wishlist').textContent = '♥ In Wishlist';
+  }
+
+  // ─── REVIEW ──────────────────────────────────────────────────────────────
+  function buildStars() {
+    currentRating = 0;
+    var el = document.getElementById('star-picker');
+    el.innerHTML = '';
+    for (var i = 1; i <= 5; i++) {
+      (function(star) {
+        var btn = document.createElement('button');
+        btn.className = 'star-btn';
+        btn.textContent = '★';
+        btn.dataset.val = star;
+        btn.onclick = function() {
+          currentRating = star;
+          document.querySelectorAll('.star-btn').forEach(function(s) {
+            s.classList.toggle('lit', parseInt(s.dataset.val) <= star);
+          });
+        };
+        el.appendChild(btn);
+      })(i);
+    }
+  }
+
+  async function submitReview() {
+    var resultEl = document.getElementById('review-result');
+    if (!currentRating) {
+      resultEl.style.color = '#e74c3c';
+      resultEl.textContent = 'Please select a star rating!';
+      return;
+    }
+    var text = document.getElementById('review-text').value.trim();
+    var res  = await fetch(API + '/reviews', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        loanId: eligibleLoanId,
+        userId: getCurrentUserId(),
+        bookId: currentBook.id,
+        rating: currentRating,
+        reviewText: text || null
+      })
+    });
+    if (res.ok) {
+      resultEl.style.color = '#1a5c42';
+      resultEl.textContent = '✓ Review submitted! Thank you.';
+      document.getElementById('review-form-section').style.display = 'none';
+      await loadReviews(currentBook.id);
+    } else {
+      var d = await res.json();
+      resultEl.style.color = '#e74c3c';
+      resultEl.textContent = '✗ ' + (d.message || 'Error submitting review.');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('book-modal').classList.remove('open');
+    // Reset terms dhe days selector
+    var terms = document.getElementById('borrow-terms');
+    var days = document.getElementById('days-selector');
+    var dep  = document.getElementById('deposit-note');
+    if (terms) terms.style.display = 'none';
+    if (days)  days.style.display  = 'none';
+    if (dep)   dep.style.display   = 'none';
+    ['term-1','term-2','term-3'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.checked = false;
+    });
+    currentBook = null;
+  }
+
+  // Close on overlay click
+  document.getElementById('book-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  loadCategories();
+  loadBooks();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — My Loans</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html" class="active">My Loans</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="reservations.html">Reservations</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div id="pending-requests-section" style="margin-bottom:24px">
+    <h3 style="color:#1a5c42;margin-bottom:12px">📋 Pending Requests</h3>
+    <div id="pending-requests-list"></div>
+  </div>
+
+  <h2>My Loans</h2>
+
+  <div class="filters">
+    <select id="status-filter" onchange="renderLoans()">
+      <option value="all">All loans</option>
+      <option value="Active">Active</option>
+      <option value="Overdue">Overdue</option>
+      <option value="Returned">Returned</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Book</th>
+          <th>Author</th>
+          <th>Borrowed</th>
+          <th>Due Date</th>
+          <th>Returned</th>
+          <th>Status</th>
+          <th>Renew</th>
+          <th>Review</th>
+        </tr>
+      </thead>
+      <tbody id="loans-body"></tbody>
+    </table>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     REVIEW MODAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="review-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,30,20,0.55);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;animation:fadeIn 0.2s ease-out">
+  <div id="review-modal-card" style="background:white;border-radius:20px;padding:36px;max-width:480px;width:90%;box-shadow:0 25px 70px rgba(0,0,0,0.35);position:relative;animation:slideUp 0.3s ease-out">
+
+    <!-- Close button -->
+    <button onclick="closeReviewModal()" aria-label="Close"
+      style="position:absolute;top:14px;right:14px;background:#f0f2f5;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;color:#666;display:flex;align-items:center;justify-content:center;transition:background 0.2s"
+      onmouseover="this.style.background='#e0e3e8'" onmouseout="this.style.background='#f0f2f5'">✕</button>
+
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:38px;margin-bottom:6px">⭐</div>
+      <h2 style="color:#1a5c42;margin:0 0 4px;font-size:22px">Rate this book</h2>
+      <p id="review-book-title" style="color:#666;font-size:14px;margin:0;font-style:italic"></p>
+    </div>
+
+    <!-- Star rating -->
+    <div style="margin-bottom:20px">
+      <label style="display:block;margin-bottom:10px;color:#333;font-weight:600;font-size:14px">Your rating</label>
+      <div id="star-rating" style="display:flex;gap:8px;justify-content:center;padding:14px;background:#f8faf9;border-radius:12px;border:1px solid #e8eee9">
+        <span class="star" data-value="1" style="font-size:38px;cursor:pointer;color:#ddd;transition:transform 0.15s,color 0.15s;user-select:none">★</span>
+        <span class="star" data-value="2" style="font-size:38px;cursor:pointer;color:#ddd;transition:transform 0.15s,color 0.15s;user-select:none">★</span>
+        <span class="star" data-value="3" style="font-size:38px;cursor:pointer;color:#ddd;transition:transform 0.15s,color 0.15s;user-select:none">★</span>
+        <span class="star" data-value="4" style="font-size:38px;cursor:pointer;color:#ddd;transition:transform 0.15s,color 0.15s;user-select:none">★</span>
+        <span class="star" data-value="5" style="font-size:38px;cursor:pointer;color:#ddd;transition:transform 0.15s,color 0.15s;user-select:none">★</span>
+      </div>
+      <p id="rating-label" style="text-align:center;margin:8px 0 0;font-size:13px;color:#888;min-height:18px"></p>
+    </div>
+
+    <!-- Review text -->
+    <div style="margin-bottom:22px">
+      <label for="review-text" style="display:block;margin-bottom:8px;color:#333;font-weight:600;font-size:14px">
+        Your review <span style="color:#999;font-weight:400">(optional)</span>
+      </label>
+      <textarea id="review-text" rows="4" maxlength="500" placeholder="Share your thoughts about this book…"
+        style="width:100%;padding:12px;border:1.5px solid #e0e3e8;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;outline:none;transition:border-color 0.2s;box-sizing:border-box"
+        onfocus="this.style.borderColor='#1a5c42';this.style.boxShadow='0 0 0 3px rgba(26,92,66,0.1)'"
+        onblur="this.style.borderColor='#e0e3e8';this.style.boxShadow=''"></textarea>
+      <div style="text-align:right;font-size:12px;color:#999;margin-top:4px">
+        <span id="review-char-count">0</span> / 500
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:10px">
+      <button onclick="closeReviewModal()"
+        style="flex:1;padding:12px;background:#f0f2f5;color:#555;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s"
+        onmouseover="this.style.background='#e0e3e8'" onmouseout="this.style.background='#f0f2f5'">Cancel</button>
+      <button id="review-submit-btn" onclick="submitReview()"
+        style="flex:2;padding:12px;background:linear-gradient(135deg,#1a5c42,#2b7a5e);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s"
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 20px rgba(26,92,66,0.3)'"
+        onmouseout="this.style.transform='';this.style.boxShadow=''">Submit Review</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+  #star-rating .star:hover { transform: scale(1.15) }
+</style>
+
+<script src="auth.js"></script>
+<script src="dialog.js"></script>
+<script>
+  var API   = 'http://localhost:5273/api';
+  var loans = [];
+
+  async function loadLoans() {
+    loans = await fetch(API + '/loans/user/' + getCurrentUserId()).then(r => r.json()).catch(() => []);
+    renderLoans();
+  }
+
+  function renderLoans() {
+    var filter = document.getElementById('status-filter').value;
+    var body   = document.getElementById('loans-body');
+    var list   = filter === 'all' ? loans : loans.filter(l => l.status === filter);
+
+    if (!list.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#888">No loans found.</td></tr>';
+      return;
+    }
+
+    // Collect bookIds that already have a review on ANY loan of this user.
+    // Used so that a second loan of the same book shows "✓ Done" instead of a Review button,
+    // because the backend allows only one review per (user, book).
+    var reviewedBookIds = {};
+    for (var i = 0; i < loans.length; i++) {
+      if (loans[i].hasReview && loans[i].book && loans[i].book.id != null) {
+        reviewedBookIds[loans[i].book.id] = true;
+      }
+    }
+
+    body.innerHTML = list.map(function(l) {
+      var due      = new Date(l.dueDate);
+      var today    = new Date();
+      var diff     = Math.ceil((due - today) / 86400000);
+      var badgeCls = l.status === 'Active' ? 'badge-active' : l.status === 'Overdue' ? 'badge-overdue' : 'badge-returned';
+      var dueTxt   = l.status === 'Returned' ? '—' : (diff < 0 ? '<span style="color:#e74c3c">Overdue ' + Math.abs(diff) + 'd</span>' : 'In ' + diff + 'd');
+
+      var renewalsLeft = 2 - (l.renewalCount || 0);
+      var renewCell;
+      if (l.status === 'Returned') {
+        renewCell = '—';
+      } else if (renewalsLeft <= 0) {
+        renewCell = '<span style="color:#aaa;font-size:12px">Max reached</span>';
+      } else {
+        renewCell = '<button onclick="renewLoan(' + l.id + ',this)" '
+          + 'style="background:#1a5c42;color:white;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer">'
+          + '+14d (' + renewalsLeft + ' left)</button>';
+      }
+
+      // Show "✓ Done" if THIS loan has a review, OR if ANY other loan of the same book has one.
+      var bookAlreadyReviewed = l.book && reviewedBookIds[l.book.id];
+      var reviewBtn = (l.status === 'Returned' && !bookAlreadyReviewed)
+        ? '<button onclick="openReviewModal(' + l.id + ',' + l.book.id + ',\'' + (l.book.title || '').replace(/'/g, "\\'") + '\')" '
+          + 'style="background:linear-gradient(135deg,#1a5c42,#2b7a5e);color:white;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;transition:transform 0.15s,box-shadow 0.15s" '
+          + 'onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 10px rgba(26,92,66,0.3)\'" '
+          + 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">★ Review</button>'
+        : (bookAlreadyReviewed ? '<span style="color:#1a5c42;font-size:12px;font-weight:600">✓ Done</span>' : '—');
+
+      return '<tr>'
+        + '<td><strong>' + l.book.title + '</strong></td>'
+        + '<td>' + (l.book.author || '') + '</td>'
+        + '<td>' + new Date(l.borrowDate).toLocaleDateString() + '</td>'
+        + '<td>' + due.toLocaleDateString() + ' ' + dueTxt + '</td>'
+        + '<td>' + (l.returnDate ? new Date(l.returnDate).toLocaleDateString() : '—') + '</td>'
+        + '<td><span class="badge ' + badgeCls + '">' + l.status + '</span></td>'
+        + '<td>' + renewCell + '</td>'
+        + '<td>' + reviewBtn + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  async function renewLoan(loanId, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Renewing…';
+    var res = await fetch(API + '/loans/' + loanId + '/renew', { method: 'POST' });
+    var data = await res.json().catch(function() { return {}; });
+    if (res.ok) {
+      showToast(data.message || 'Loan renewed!', 'success');
+      await loadLoans();
+    } else {
+      showToast(data.message || 'Could not renew.', 'error');
+      btn.disabled = false;
+      btn.textContent = '+14d';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // REVIEW MODAL LOGIC
+  // ═══════════════════════════════════════════════════════════════════════
+  var reviewState = { loanId: null, bookId: null, rating: 0 };
+  var ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+
+  function openReviewModal(loanId, bookId, bookTitle) {
+    reviewState.loanId = loanId;
+    reviewState.bookId = bookId;
+    reviewState.rating = 0;
+
+    document.getElementById('review-book-title').textContent = bookTitle || '';
+    document.getElementById('review-text').value = '';
+    document.getElementById('review-char-count').textContent = '0';
+    document.getElementById('rating-label').textContent = '';
+    document.getElementById('review-submit-btn').disabled = false;
+    document.getElementById('review-submit-btn').textContent = 'Submit Review';
+    paintStars(0);
+
+    var modal = document.getElementById('review-modal');
+    modal.style.display = 'flex';
+  }
+
+  function closeReviewModal() {
+    document.getElementById('review-modal').style.display = 'none';
+  }
+
+  function paintStars(value) {
+    var stars = document.querySelectorAll('#star-rating .star');
+    stars.forEach(function(s) {
+      var v = parseInt(s.getAttribute('data-value'));
+      s.style.color = v <= value ? '#f5b400' : '#ddd';
+    });
+    document.getElementById('rating-label').textContent = ratingLabels[value] || '';
+  }
+
+  // Star click + hover handlers
+  document.addEventListener('DOMContentLoaded', function() {
+    var stars = document.querySelectorAll('#star-rating .star');
+    stars.forEach(function(s) {
+      s.addEventListener('click', function() {
+        reviewState.rating = parseInt(this.getAttribute('data-value'));
+        paintStars(reviewState.rating);
+      });
+      s.addEventListener('mouseenter', function() {
+        paintStars(parseInt(this.getAttribute('data-value')));
+      });
+    });
+    var rating = document.getElementById('star-rating');
+    if (rating) {
+      rating.addEventListener('mouseleave', function() {
+        paintStars(reviewState.rating);
+      });
+    }
+
+    // Character counter
+    var ta = document.getElementById('review-text');
+    if (ta) {
+      ta.addEventListener('input', function() {
+        document.getElementById('review-char-count').textContent = this.value.length;
+      });
+    }
+
+    // Close on backdrop click
+    var modal = document.getElementById('review-modal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeReviewModal();
+      });
+    }
+
+    // Close on Esc
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && document.getElementById('review-modal').style.display === 'flex') {
+        closeReviewModal();
+      }
+    });
+  });
+
+  async function submitReview() {
+    if (!reviewState.rating || reviewState.rating < 1 || reviewState.rating > 5) {
+      showToast('Please select a rating from 1 to 5 stars.', 'error');
+      return;
+    }
+
+    var btn = document.getElementById('review-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    var payload = {
+      loanId: reviewState.loanId,
+      userId: getCurrentUserId(),
+      bookId: reviewState.bookId,
+      rating: reviewState.rating,
+      reviewText: document.getElementById('review-text').value.trim() || null
+    };
+
+    try {
+      var res = await fetch(API + '/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json().catch(function() { return {}; });
+
+      if (res.ok) {
+        showToast('Thanks! Your review has been submitted.', 'success');
+        closeReviewModal();
+        await loadLoans();
+      } else {
+        showToast(data.message || 'Could not submit review.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Submit Review';
+      }
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Submit Review';
+    }
+  }
+
+  loadLoans();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+<script>
+async function loadPendingRequests() {
+  var uid = getCurrentUserId();
+  var requests = await fetch('http://localhost:5273/api/borrowrequest/user/' + uid)
+    .then(function(r){ return r.json(); }).catch(function(){ return []; });
+
+  var pending = requests.filter(function(r){ return r.status === 'Pending'; });
+  var el = document.getElementById('pending-requests-list');
+  if (!el) return;
+
+  if (!pending.length) {
+    el.innerHTML = '<p style="color:#999;font-size:13px">No pending requests.</p>';
+    return;
+  }
+
+  el.innerHTML = pending.map(function(r) {
+    var expires = new Date(r.expiresAt).toLocaleDateString('en-GB',
+      {weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    return '<div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:8px;border-left:4px solid #f39c12;box-shadow:0 1px 4px rgba(0,0,0,0.06)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div>' +
+          '<strong>' + r.book.title + '</strong><br>' +
+          '<span style="font-size:12px;color:#666">' + r.days + ' days · Requested: ' + new Date(r.requestedAt).toLocaleDateString() + '</span><br>' +
+          '<span style="font-size:12px;color:#d4850a;font-weight:600">⏰ Come to desk by: ' + expires + '</span><br>' +
+          '<span style="font-size:12px;color:#888">💶 Remember to bring a cash deposit</span>' +
+        '</div>' +
+        '<button onclick="cancelRequest(' + r.id + ',this.parentElement.parentElement)" ' +
+          'style="background:#fde8e8;color:#c0392b;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function cancelRequest(id, el) {
+  if (!await customConfirm('Cancel this request?')) return;
+  var uid = getCurrentUserId();
+  var res = await fetch('http://localhost:5273/api/borrowrequest/' + id + '/cancel?userId=' + uid, {method:'POST'});
+  if (res.ok) { showToast('Request cancelled.','success'); el.style.opacity='0'; setTimeout(function(){ el.remove(); },300); }
+  else showToast('Error.','error');
+}
+
+document.addEventListener('DOMContentLoaded', loadPendingRequests);
+</script>
+</body>
+</html>

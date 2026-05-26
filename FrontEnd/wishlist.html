@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Librario — Wishlist</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 Librario</h1>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="catalog.html">Catalog</a>
+      <a href="loans.html">My Loans</a>
+      <a href="wishlist.html" class="active">Wishlist</a>
+      <a href="reservations.html">Reservations</a>
+      <a href="fines.html">Fines</a>
+      <a href="rooms.html">Rooms</a>
+      <a href="events.html">Events</a>
+      <a href="stats.html">Stats</a>
+      <a href="account.html">My Account</a>
+      <a href="notifications.html" id="notif-bell-link" style="display:inline-flex;align-items:center;gap:5px;color:white;text-decoration:none;font-weight:600;padding:6px 12px;background:rgba(255,255,255,0.15);border-radius:8px;font-size:14px;position:relative" title="Notifications">
+        🔔 <span id="notif-count-badge" style="display:none;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px">0</span>
+      </a>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <h2>My Wishlist</h2>
+  <p style="color:#666;margin-bottom:16px;font-size:14px">You will be notified automatically when a wishlisted book becomes available.</p>
+
+  <div id="wishlist-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px"></div>
+</main>
+
+<script src="auth.js"></script>
+<script>
+  var API = 'http://localhost:5273/api';
+
+  async function loadWishlist() {
+    var list = await fetch(API + '/wishlist/' + getCurrentUserId()).then(r => r.json()).catch(() => []);
+    var el   = document.getElementById('wishlist-grid');
+
+    if (!list.length) {
+      el.innerHTML = '<div style="grid-column:1/-1"><div class="card"><p class="empty">Your wishlist is empty. <a href="catalog.html">Add books from the catalog →</a></p></div></div>';
+      return;
+    }
+
+    el.innerHTML = list.map(function(w) {
+      var avail = w.book.availableCopies > 0;
+      return '<div class="card">' +
+        '<div style="font-weight:600;margin-bottom:4px">' + w.book.title + '</div>' +
+        '<div style="color:#666;font-size:13px;margin-bottom:8px">' + (w.book.author || '') + '</div>' +
+        '<div style="font-size:12px;color:#f39c12;margin-bottom:10px">★ ' + (w.book.averageRating || 0).toFixed(1) + '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          (avail
+            ? '<button onclick="borrowFromWishlist(' + w.book.id + ',' + w.id + ')" class="btn btn-green" style="font-size:12px">Borrow now</button>'
+            : '<span style="font-size:12px;color:#e74c3c;font-weight:500">Unavailable</span>') +
+          '<button onclick="removeFromWishlist(' + w.book.id + ')" class="btn btn-gray" style="font-size:12px">Remove</button>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#aaa;margin-top:8px">Added ' + new Date(w.addedAt).toLocaleDateString() + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function borrowFromWishlist(bookId) {
+    var res = await fetch(API + '/loans/borrow', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: getCurrentUserId(), bookId: bookId })
+    });
+    var d = await res.json();
+    if (res.ok) {
+      showToast('Book borrowed! Due ' + new Date(d.dueDate).toLocaleDateString(), 'success');
+      loadWishlist();
+    } else {
+      showToast(d.message || 'Could not borrow.', 'error');
+    }
+  }
+
+  async function removeFromWishlist(bookId) {
+    await fetch(API + '/wishlist/' + getCurrentUserId() + '/' + bookId, { method: 'DELETE' });
+    showToast('Removed from wishlist.', 'success');
+    loadWishlist();
+  }
+
+  loadWishlist();
+</script>
+<script>
+(function(){
+  var API = 'http://localhost:5273/api';
+  function updateBell() {
+    var uid = sessionStorage.getItem('userId');
+    if (!uid) return;
+    fetch(API + '/notifications/' + uid)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var unread = data.filter(function(n){return !n.isRead;}).length;
+        var badge = document.getElementById('notif-count-badge');
+        if (!badge) return;
+        if (unread > 0) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateBell();
+    setInterval(updateBell, 30000);
+  });
+})();
+</script>
+<script src="notifications-widget.js"></script>
+</body>
+</html>
